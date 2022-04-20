@@ -19,7 +19,8 @@ from async_hvac import exceptions
 class AsyncClient(object):
     def __init__(self, url='http://127.0.0.1:8200', token=None,
                  cert=None, verify=True, timeout=30, proxies=None,
-                 allow_redirects=True, session=None, loop=None):
+                 allow_redirects=True, session=None, loop=None,
+                 namespace=None):
 
         self.allow_redirects = allow_redirects
         self._session = session
@@ -31,6 +32,7 @@ class AsyncClient(object):
         self._proxies = proxies
         self._loop = loop
         self._sslcontext = None
+        self._namespace = namespace
         if verify and self._cert:
             self._sslcontext = ssl.create_default_context(cafile=verify)
             self._sslcontext.load_cert_chain(self._cert[0], self._cert[1])
@@ -1623,14 +1625,19 @@ class AsyncClient(object):
         if self.token:
             headers['X-Vault-Token'] = self.token
 
+        if self._namespace:
+            headers['X-Vault-Namespace'] = self._namespace
+
         wrap_ttl = kwargs.pop('wrap_ttl', None)
         if wrap_ttl:
             headers['X-Vault-Wrap-TTL'] = str(wrap_ttl)
+
         response = await self.session.request(
             method, url, headers=headers,
             allow_redirects=False,
             ssl=self._sslcontext,
             proxy=self._proxies, **kwargs)
+
         while response.status >= 300 and response.status < 400 and self.allow_redirects and 'Location' in response.headers:
             url = self.urljoin(self._url, response.headers['Location'])
             response = await self.session.request(
